@@ -1,0 +1,65 @@
+
+services:
+  web:
+     build: .
+     image: pos-21-web:latest
+     container_name: pos_web
+     restart: unless-stopped
+     environment:
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+     
+     volumes:
+      - ./app:/var/www/html:ro
+     depends_on:
+      - db
+     networks:
+      - pos_network
+
+  db:
+    image: mysql:8.0
+    container_name: pos_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: pos_db
+      MYSQL_USER: pos_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - pos_network
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: pos_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8083:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+    depends_on:
+      - db
+    networks:
+      - pos_network
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: pos_nginx
+    restart: unless-stopped
+    ports:
+      - "8084:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+    networks:
+      - pos_network
+
+volumes:
+  mysql_data:
+
+networks:
+  pos_network:
+    driver: bridge
